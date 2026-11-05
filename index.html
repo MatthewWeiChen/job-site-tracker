@@ -192,7 +192,7 @@ textarea.copybox{width:100%;min-height:160px;border:1px solid var(--line);border
 <main id="app"><div class="empty">Loading your job sites…</div></main>
 <dialog id="dlg"></dialog>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
 (function(){
@@ -294,7 +294,12 @@ async function loadAll(){
 async function start(){
   render();
   if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){mode="setup";render();return;}
-  sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey);
+  // Accept common paste mistakes: trailing slash, /rest/v1 path, or the dashboard link
+  let url=String(CFG.supabaseUrl).trim();
+  const dash=url.match(/dashboard\/project\/([a-z0-9]+)/i);
+  if(dash)url="https://"+dash[1]+".supabase.co";
+  try{url=new URL(url).origin;}catch(e){}
+  sb=window.supabase.createClient(url,String(CFG.supabaseAnonKey).trim());
   const {data:{session}}=await sb.auth.getSession();
   if(session){userEmail=session.user.email||"";loadAll();}else{mode="login";render();}
   sb.auth.onAuthStateChange((ev,s)=>{
