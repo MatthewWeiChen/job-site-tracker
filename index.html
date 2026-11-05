@@ -1,1 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Site Tracker</title>
+<meta name="theme-color" content="#1d4f91">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Job Sites">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: top bar, then dashboard of job cards or a single job with tabs. Blueprint blue accent on concrete greys. */
+:root{
+  --bg:#f3f4f6; --surface:#ffffff; --ink:#1b2430; --muted:#5d6878; --line:#d9dde3; --accent:#1d4f91; --accent-ink:#ffffff; --accent-soft:#e3ecf7;
+  --ok:#2f7d4f; --ok-soft:#dcefe3; --warn:#b26a00; --warn-soft:#fbead0; --bad:#b3261e; --bad-soft:#f8dcd9; --done:#8a929c; --done-soft:#e6e8eb;
+  --bar:#3f78c4;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif; --body:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12161c; --surface:#1b2129; --ink:#e6e9ee; --muted:#9aa4b2; --line:#2e3640; --accent:#6ea3e8; --accent-ink:#0d1520; --accent-soft:#1f3048;
+  --ok:#6cc08b; --ok-soft:#1d3326; --warn:#f0a845; --warn-soft:#3a2b14; --bad:#f08a80; --bad-soft:#3d1f1d; --done:#7d8794; --done-soft:#262c34; --bar:#4f8ad6; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#12161c; --surface:#1b2129; --ink:#e6e9ee; --muted:#9aa4b2; --line:#2e3640; --accent:#6ea3e8; --accent-ink:#0d1520; --accent-soft:#1f3048;
+  --ok:#6cc08b; --ok-soft:#1d3326; --warn:#f0a845; --warn-soft:#3a2b14; --bad:#f08a80; --bad-soft:#3d1f1d; --done:#7d8794; --done-soft:#262c34; --bar:#4f8ad6; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top .in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--display);font-size:22px;font-weight:700;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:14px;height:14px;background:var(--accent);border-radius:3px}
+.crumb{color:var(--muted);font-size:14px}
+.spacer{flex:1}
+main{max-width:1180px;margin:0 auto;padding:16px 16px 60px;display:flex;flex-direction:column;gap:18px}
+.banner{background:var(--warn-soft);color:var(--ink);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:14px}
+.btn{text-decoration:none;display:inline-block;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:4px 9px;font-size:13px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.section h2{font-size:20px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.s-ok{background:var(--ok-soft);color:var(--ok)}
+.s-warn{background:var(--warn-soft);color:var(--warn)}
+.s-bad{background:var(--bad-soft);color:var(--bad)}
+.s-done{background:var(--done-soft);color:var(--done)}
+.s-new{border-color:var(--line);color:var(--muted)}
+.s-info{background:var(--accent-soft);color:var(--accent)}
+/* dashboard */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;text-align:left;border-left:5px solid var(--accent)}
+.card:hover{border-color:var(--accent)}
+.card h3{font-size:24px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stat{background:var(--bg);border-radius:8px;padding:6px 8px}
+.stat b{display:block;font-family:var(--display);font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.stat.alert b{color:var(--bad)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li .when{font-variant-numeric:tabular-nums;min-width:62px;color:var(--muted);font-size:13px;padding-top:2px}
+.li .what{flex:1;min-width:0}
+.li.click{cursor:pointer}
+.jobtag{font-size:12px;color:var(--accent);font-weight:600}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+/* tabs */
+.jobhead{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end}
+.jobhead h1{font-size:34px;line-height:1}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;cursor:pointer;color:var(--muted);font-weight:500;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .n{font-size:11px;background:var(--bg);border-radius:999px;padding:0 6px;margin-left:4px}
+/* lookahead grid */
+.gwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.la{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;font-size:13px}
+.la th,.la td{border-bottom:1px solid var(--line);padding:0;height:34px}
+.la th.act,.la td.act{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;padding:4px 10px;min-width:200px;max-width:260px;border-right:1px solid var(--line)}
+.la thead th{background:var(--bg);font-weight:600;font-size:12px;color:var(--muted)}
+.la thead th.act{background:var(--bg)}
+.la .wk{text-align:center;font-family:var(--display);font-size:15px;color:var(--ink);border-left:2px solid var(--line)}
+.la .day{text-align:center;min-width:34px;line-height:1.15;font-variant-numeric:tabular-nums}
+.la .day.wstart{border-left:2px solid var(--line)}
+.la .day.today{background:var(--accent-soft);color:var(--accent)}
+.la td.day{position:relative}
+.la td.on::after{content:"";position:absolute;left:0;right:0;top:8px;bottom:8px;background:var(--bar)}
+.la td.on.first::after{left:3px;border-radius:4px 0 0 4px}
+.la td.on.last::after{right:3px;border-radius:0 4px 4px 0}
+.la td.on.first.last::after{border-radius:4px}
+.la tr.st-warn td.on::after{background:var(--warn)}
+.la tr.st-bad td.on::after{background:var(--bad)}
+.la tr.st-done td.on::after{background:var(--done)}
+.la tr.st-new td.on::after{background:var(--accent-soft);border-top:2px dashed var(--bar);border-bottom:2px dashed var(--bar)}
+.la tbody tr{cursor:pointer}
+.la tbody tr:hover td.act{background:var(--accent-soft)}
+.la .aname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.la .atr{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.la tr.insp td{height:26px;background:var(--bg)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--warn);margin-top:2px}
+.dot.pass{background:var(--ok)}.dot.fail{background:var(--bad)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:8px;border-radius:3px;margin-right:4px;vertical-align:middle}
+/* tables */
+.twrap{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:14px}
+.t th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.t td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.t tbody tr{cursor:pointer}
+.t tbody tr:hover{background:var(--accent-soft)}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.log{border-top:1px solid var(--line);padding:10px 0;cursor:pointer;display:grid;grid-template-columns:110px 1fr;gap:10px}
+.log:first-child{border-top:0}
+.log .d{font-family:var(--display);font-size:18px;line-height:1.1}
+.log p{margin:2px 0;white-space:pre-wrap}
+@media (max-width:520px){.log{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.jobhead h1{font-size:28px}}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px}
+.kv dt{color:var(--muted);font-size:13px}.kv dd{margin:0;white-space:pre-wrap}
+@media (max-width:520px){.kv{grid-template-columns:1fr}.kv dd{margin-bottom:6px}}
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 24px));max-height:calc(100% - 24px)}
+dialog::backdrop{background:rgba(10,15,20,.5)}
+.dlg{display:flex;flex-direction:column;max-height:calc(100vh - 40px)}
+.dlg header{padding:14px 16px;border-bottom:1px solid var(--line)}
+.dlg header h2{font-size:22px}
+.dlg .body{padding:14px 16px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.dlg footer{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap}
+.f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.f.wide{grid-column:1/-1}
+.f label{font-size:12px;font-weight:600;color:var(--muted)}
+.f input,.f select,.f textarea{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--bg);width:100%}
+.f textarea{min-height:70px;resize:vertical}
+.err{color:var(--bad);font-size:13px;grid-column:1/-1}
+@media (max-width:520px){.dlg .body{grid-template-columns:1fr}}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;z-index:20}
+textarea.copybox{width:100%;min-height:160px;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);font-size:13px}
 
+/* ---- phone ---- */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;cursor:pointer;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.wkhead{font-family:var(--display);font-size:18px;font-weight:600;padding:10px 0 2px;border-top:2px solid var(--line);margin-top:4px}
+.wkhead:first-child{border-top:0;margin-top:0}
+@media (max-width:640px){
+  main{padding:12px 12px 60px;gap:14px}
+  .top .in{padding:8px 12px}
+  .brand{font-size:20px}
+  .crumb{display:none}
+  .btn{min-height:40px;padding:8px 12px}
+  .btn.sm{min-height:38px;padding:6px 11px;font-size:14px}
+  .seg button{min-height:38px}
+  .tab{padding:10px 12px}
+  .f input,.f select,.f textarea{font-size:16px;min-height:42px}
+  .section{padding:12px}
+  .la th.act,.la td.act{min-width:118px;max-width:132px;padding:4px 8px}
+  table.la{min-width:620px}
+  .t thead{display:none}
+  .t,.t tbody,.t tr,.t td{display:block;width:100%}
+  .t tr{border-bottom:1px solid var(--line);padding:8px 0}
+  .t td{border:0;padding:2px 0;display:flex;gap:10px;white-space:normal}
+  .t td::before{content:attr(data-label);flex:0 0 84px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding-top:2px}
+  .t td:empty{display:none}
+  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:14px 14px 0 0;border-bottom:0}
+  .dlg{max-height:92vh}
+  .dlg footer .btn{flex:1}
+  .dlg footer .spacer{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="in">
+  <a class="brand" href="#dashboard"><i></i>Job Site Tracker</a>
+  <span class="crumb" id="crumb"></span>
+  <span class="spacer"></span>
+  <span id="topActions"></span>
+</div></header>
+<main id="app"><div class="empty">Loading your job sites…</div></main>
+<dialog id="dlg"></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+"use strict";
+// ---------- helpers ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse=s=>{const p=String(s||"").split("-").map(Number);return p.length===3&&p[0]?new Date(p[0],p[1]-1,p[2]):null;};
+const md=s=>{const d=parse(s);return d?(d.getMonth()+1)+"/"+d.getDate():"";};
+const mdy=s=>{const d=parse(s);return d?(d.getMonth()+1)+"/"+d.getDate()+"/"+String(d.getFullYear()).slice(2):"";};
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const todayIso=()=>iso(new Date());
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+const monday=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());return addDays(x,-((x.getDay()+6)%7));};
+const workdays=(start,n)=>{const out=[];let d=new Date(start);while(out.length<n){if(d.getDay()!==0&&d.getDay()!==6)out.push(iso(d));d=addDays(d,1);}return out;};
+const genId=()=>"x"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const money=v=>v===""||v==null||isNaN(+v)?"":(+v<0?"-":"")+"$"+Math.abs(+v).toLocaleString(undefined,{maximumFractionDigits:0});
+function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
+
+// ---------- schema ----------
+const ACT_STATUS=["Not Started","On Track","At Risk","Late","Done"];
+const ACT_CLS={"Not Started":"new","On Track":"ok","At Risk":"warn","Late":"bad","Done":"done"};
+const INSP_RES=["Scheduled","Passed","Partial","Failed","Cancelled"];
+const INSP_CLS={Scheduled:"info",Passed:"ok",Partial:"warn",Failed:"bad",Cancelled:"done"};
+const ITEM_KIND=["RFI","Change Order","Submittal"];
+const ITEM_STATUS=["Open","Answered","Approved","Rejected","Closed"];
+const ITEM_CLS={Open:"warn",Answered:"info",Approved:"ok",Rejected:"bad",Closed:"done"};
+const JOB_STATUS=["Active","On Hold","Complete"];
+const JOB_CLS={Active:"ok","On Hold":"warn",Complete:"done"};
+const SCHEMAS={
+  jobs:{title:"Job",fields:[
+    {k:"name",l:"Job name",req:1,w:1},{k:"address",l:"Address",w:1},{k:"city",l:"City"},{k:"status",l:"Status",t:"select",o:JOB_STATUS,def:"Active"},
+    {k:"client",l:"Owner / client"},{k:"permit",l:"Permit #"},{k:"start",l:"Start date",t:"date"},{k:"finish",l:"Target completion",t:"date"},
+    {k:"notes",l:"Notes (gate code, parking, scope)",t:"textarea",w:1}]},
+  activities:{title:"Activity",fields:[
+    {k:"name",l:"Activity",req:1,w:1},{k:"trade",l:"Trade / sub"},{k:"status",l:"Status",t:"select",o:ACT_STATUS,def:"Not Started"},
+    {k:"start",l:"Start",t:"date",req:1},{k:"finish",l:"Finish",t:"date",req:1},
+    {k:"crew",l:"Crew size",t:"number"},{k:"constraint",l:"Constraints / needs first",t:"textarea",w:1,ph:"Inspection, submittal, delivery, owner decision…"},
+    {k:"notes",l:"Notes",t:"textarea",w:1}]},
+  logs:{title:"Daily log",fields:[
+    {k:"date",l:"Date",t:"date",req:1,def:()=>todayIso()},{k:"weather",l:"Weather"},{k:"crew",l:"Workers on site",t:"number"},{k:"hours",l:"Hours",t:"number"},
+    {k:"work",l:"Work performed",t:"textarea",w:1,req:1},{k:"subs",l:"Subs on site",w:1},{k:"deliveries",l:"Deliveries"},{k:"visitors",l:"Visitors / inspectors"},
+    {k:"issues",l:"Issues, delays, safety",t:"textarea",w:1}]},
+  inspections:{title:"Inspection",fields:[
+    {k:"type",l:"Inspection",req:1,w:1,ph:"e.g. Foundation, Rough framing, Final"},{k:"date",l:"Date",t:"date",req:1},{k:"time",l:"Time window"},
+    {k:"inspector",l:"Inspector / agency"},{k:"result",l:"Result",t:"select",o:INSP_RES,def:"Scheduled"},{k:"notes",l:"Notes / corrections",t:"textarea",w:1}]},
+  items:{title:"RFI / CO / Submittal",fields:[
+    {k:"kind",l:"Type",t:"select",o:ITEM_KIND,def:"RFI"},{k:"number",l:"Number",ph:"RFI-01"},{k:"title",l:"Subject",req:1,w:1},
+    {k:"to",l:"Sent to"},{k:"status",l:"Status",t:"select",o:ITEM_STATUS,def:"Open"},{k:"sent",l:"Date sent",t:"date"},{k:"due",l:"Response due",t:"date"},
+    {k:"amount",l:"Amount $ (change orders)",t:"number"},{k:"days",l:"Schedule impact (days)",t:"number"},{k:"notes",l:"Notes / answer",t:"textarea",w:1}]},
+  contacts:{title:"Contact",fields:[
+    {k:"name",l:"Name",req:1},{k:"company",l:"Company"},{k:"role",l:"Role / trade"},{k:"phone",l:"Phone",t:"tel"},{k:"email",l:"Email",t:"email",w:1},{k:"notes",l:"Notes",t:"textarea",w:1}]}
+};
+const COLS=Object.keys(SCHEMAS);
+
+// ---------- state & store (Supabase) ----------
+const S={jobs:[],activities:[],logs:[],inspections:[],items:[],contacts:[]};
+let sb=null, mode="loading", loadNote="", userEmail="";
+let view={page:"dashboard",job:null,tab:"lookahead",week:monday(new Date()),laMode:(window.matchMedia&&matchMedia("(max-width:640px)").matches)?"list":"chart"};
+const CFG=window.TRACKER_CONFIG||{};
+
+function applyRow(row){
+  if(!S[row.col])return;
+  const arr=S[row.col];const rec={id:row.id,...row.data};const i=arr.findIndex(r=>r.id===row.id);
+  if(i>=0)arr[i]=rec;else arr.push(rec);
+}
+function dropRow(id){COLS.forEach(c=>{S[c]=S[c].filter(r=>r.id!==id);});}
+
+async function save(col,id,data){
+  data.updatedAt=new Date().toISOString();
+  const {error}=await sb.from("records").upsert({id,col,data,updated_at:data.updatedAt});
+  if(error){toast("Couldn't save: "+error.message);throw error;}
+  applyRow({id,col,data});render();
+}
+async function remove(col,id){
+  const {error}=await sb.from("records").delete().eq("id",id);
+  if(error){toast("Couldn't delete: "+error.message);throw error;}
+  dropRow(id);render();
+}
+
+async function loadAll(){
+  mode="loading";render();
+  COLS.forEach(c=>S[c]=[]);
+  let from=0;const size=1000;
+  while(true){
+    const {data,error}=await sb.from("records").select("id,col,data").range(from,from+size-1);
+    if(error){mode="db";loadNote="Couldn't load data: "+error.message;render();return;}
+    data.forEach(applyRow);
+    if(data.length<size)break;from+=size;
+  }
+  mode="db";loadNote="";render();
+  sb.channel("records-live").on("postgres_changes",{event:"*",schema:"public",table:"records"},p=>{
+    if(p.eventType==="DELETE")dropRow(p.old.id);else applyRow(p.new);render();
+  }).subscribe();
+}
+
+async function start(){
+  render();
+  if(!CFG.supabaseUrl||!CFG.supabaseAnonKey||!window.supabase){mode="setup";render();return;}
+  sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey);
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){userEmail=session.user.email||"";loadAll();}else{mode="login";render();}
+  sb.auth.onAuthStateChange((ev,s)=>{
+    if(ev==="SIGNED_IN"&&mode==="login"){userEmail=s.user.email||"";loadAll();}
+    if(ev==="SIGNED_OUT"){mode="login";COLS.forEach(c=>S[c]=[]);render();}
+  });
+}
+function renderLogin(){
+  return '<div class="section" style="max-width:420px;margin:30px auto;width:100%"><h2>Sign in</h2>'+
+  '<form id="login" class="list" style="gap:10px" novalidate>'+
+  '<div class="f"><label for="le">Email</label><input id="le" type="email" autocomplete="username" required></div>'+
+  '<div class="f"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required></div>'+
+  '<div class="err" id="lerr"></div><button class="btn primary" type="submit">Sign in</button></form>'+
+  '<p class="small muted">Only people added by the account owner can sign in.</p></div>';
+}
+document.addEventListener("submit",async e=>{
+  if(e.target.id!=="login")return;e.preventDefault();
+  const btn=e.target.querySelector("button");btn.disabled=true;btn.textContent="Signing in…";
+  const {error}=await sb.auth.signInWithPassword({email:$("#le").value.trim(),password:$("#lp").value});
+  if(error){$("#lerr").textContent=error.message==="Invalid login credentials"?"Wrong email or password.":error.message;btn.disabled=false;btn.textContent="Sign in";}
+});
+
+// ---------- derived ----------
+const byJob=(col,jid)=>S[col].filter(r=>r.jobId===jid);
+const jobName=jid=>{const j=S.jobs.find(x=>x.id===jid);return j?j.name:"(deleted job)";};
+function weekRange(){const m=monday(new Date());return [iso(m),iso(addDays(m,4))];}
+function jobStats(jid){
+  const [ws,we]=weekRange();const t=todayIso();
+  const acts=byJob("activities",jid);
+  const thisWeek=acts.filter(a=>a.status!=="Done"&&a.start<=we&&a.finish>=ws).length;
+  const attention=acts.filter(a=>a.status==="At Risk"||a.status==="Late"||(a.status!=="Done"&&a.finish&&a.finish<t)).length;
+  const openItems=byJob("items",jid).filter(i=>i.status==="Open").length;
+  const insp=byJob("inspections",jid).filter(i=>i.result==="Scheduled"&&i.date>=t).sort((a,b)=>a.date<b.date?-1:1);
+  const logs=byJob("logs",jid).sort((a,b)=>a.date<b.date?1:-1);
+  return {thisWeek,attention,openItems,nextInsp:insp[0],lastLog:logs[0]};
+}
+function overdueAct(a){return a.status!=="Done"&&a.finish&&a.finish<todayIso();}
+
+// ---------- routing ----------
+function readHash(){
+  const h=location.hash.replace("#","");
+  if(h.startsWith("job-")){const id=h.slice(4);if(view.job!==id){view.tab="lookahead";}view.page="job";view.job=id;}
+  else{view.page="dashboard";view.job=null;}
+  render();
+}
+window.addEventListener("hashchange",readHash);
+
+// ---------- render ----------
+function render(){
+  const app=$("#app");
+  let banner=loadNote?'<div class="banner">'+esc(loadNote)+'</div>':"";
+  if(mode==="setup"){$("#crumb").textContent="";$("#topActions").innerHTML="";app.innerHTML='<div class="section"><h2>Setup needed</h2><div class="empty">Add your Supabase URL and anon key to config.js, then reload. See README.md for the steps.</div></div>';return;}
+  if(mode==="login"){$("#crumb").textContent="";$("#topActions").innerHTML="";app.innerHTML=renderLogin();return;}
+  if(mode==="loading"){app.innerHTML='<div class="empty">Loading your job sites…</div>';$("#crumb").textContent="";$("#topActions").innerHTML="";return;}
+  const out='<button class="btn sm" data-signout="1" title="'+esc(userEmail)+'">Sign out</button>';
+  if(view.page==="job"){
+    const j=S.jobs.find(x=>x.id===view.job);
+    if(!j){app.innerHTML=banner+'<div class="section"><div class="empty">This job isn\'t here. It may have been deleted.</div><div><a class="btn" href="#dashboard">Back to all jobs</a></div></div>';return;}
+    $("#crumb").textContent="/ "+j.name;$("#topActions").innerHTML='<a class="btn sm" href="#dashboard">All jobs</a> '+out;
+    app.innerHTML=banner+renderJob(j);
+  }else{
+    $("#crumb").textContent="";$("#topActions").innerHTML='<button class="btn primary sm" data-act="new" data-col="jobs">+ New job</button> '+out;
+    app.innerHTML=banner+renderDash();
+  }
+}
+
+function pill(txt,cls){return '<span class="pill s-'+cls+'">'+esc(txt)+'</span>';}
+
+function renderDash(){
+  const jobs=S.jobs.slice().sort((a,b)=>{const o={Active:0,"On Hold":1,Complete:2};return (o[a.status]??0)-(o[b.status]??0)||String(a.name).localeCompare(b.name);});
+  if(!jobs.length)return '<div class="section"><h2>No job sites yet</h2><div class="empty">Add your first job to start tracking its schedule, logs and inspections.</div><div><button class="btn primary" data-act="new" data-col="jobs">+ New job</button></div></div>';
+  const cards=jobs.map(j=>{
+    const s=jobStats(j.id);
+    return '<button class="card" data-go="'+esc(j.id)+'" style="'+(j.status==="Complete"?"border-left-color:var(--done)":j.status==="On Hold"?"border-left-color:var(--warn)":"")+'">'+
+      '<div class="row" style="justify-content:space-between;width:100%"><h3>'+esc(j.name)+'</h3>'+pill(j.status||"Active",JOB_CLS[j.status]||"ok")+'</div>'+
+      '<div class="muted small">'+esc([j.address,j.city].filter(Boolean).join(", ")||"No address yet")+(j.client?" · "+esc(j.client):"")+'</div>'+
+      '<div class="stats">'+
+        '<div class="stat"><b>'+s.thisWeek+'</b><span>This week</span></div>'+
+        '<div class="stat'+(s.attention?" alert":"")+'"><b>'+s.attention+'</b><span>At risk / late</span></div>'+
+        '<div class="stat"><b>'+s.openItems+'</b><span>Open RFI/CO</span></div>'+
+        '<div class="stat"><b>'+(s.nextInsp?md(s.nextInsp.date):"–")+'</b><span>Next insp.</span></div>'+
+      '</div>'+
+      '<div class="small muted">'+(s.nextInsp?"Next inspection: "+esc(s.nextInsp.type)+" · ":"")+(s.lastLog?"Last daily log "+mdy(s.lastLog.date):"No daily logs yet")+'</div>'+
+    '</button>';
+  }).join("");
+
+  const [ws,we]=weekRange();const t=todayIso();const active=new Set(jobs.filter(j=>j.status!=="Complete").map(j=>j.id));
+  const weekActs=S.activities.filter(a=>active.has(a.jobId)&&a.status!=="Done"&&a.start<=we&&a.finish>=ws).sort((a,b)=>a.start<b.start?-1:a.start>b.start?1:0);
+  const attn=[
+    ...S.activities.filter(a=>active.has(a.jobId)&&(a.status==="At Risk"||a.status==="Late"||overdueAct(a))).map(a=>({col:"activities",r:a,when:a.finish,txt:a.name,tag:overdueAct(a)&&a.status!=="Late"?pill("Past finish","bad"):pill(a.status,ACT_CLS[a.status])})),
+    ...S.items.filter(i=>active.has(i.jobId)&&i.status==="Open"&&i.due&&i.due<t).map(i=>({col:"items",r:i,when:i.due,txt:(i.number?i.number+" ":"")+i.title,tag:pill("Overdue "+i.kind,"bad")})),
+    ...S.inspections.filter(i=>active.has(i.jobId)&&(i.result==="Failed"||i.result==="Partial")).map(i=>({col:"inspections",r:i,when:i.date,txt:i.type+" inspection",tag:pill(i.result,INSP_CLS[i.result])}))
+  ].sort((a,b)=>a.when<b.when?-1:1);
+  const in14=iso(addDays(new Date(),14));
+  const insp=S.inspections.filter(i=>active.has(i.jobId)&&i.result==="Scheduled"&&i.date>=t&&i.date<=in14).sort((a,b)=>a.date<b.date?-1:1);
+
+  const li=(x)=>'<div class="li click" data-edit="'+x.col+'" data-id="'+esc(x.r.id)+'"><div class="when">'+md(x.when)+'</div><div class="what"><div class="jobtag">'+esc(jobName(x.r.jobId))+'</div>'+esc(x.txt)+'</div>'+x.tag+'</div>';
+  return '<div class="row" style="justify-content:space-between"><h1 style="font-size:32px">All job sites</h1><span class="muted small">Week of '+mdy(ws)+'</span></div>'+
+   '<div class="cards">'+cards+'</div>'+
+   '<div class="grid2">'+
+    '<div class="section"><h2>Needs attention</h2><div class="list">'+(attn.length?attn.map(li).join(""):'<div class="empty">Nothing at risk, late or overdue.</div>')+'</div></div>'+
+    '<div class="section"><h2>Inspections, next 14 days</h2><div class="list">'+(insp.length?insp.map(i=>li({col:"inspections",r:i,when:i.date,txt:i.type+(i.time?" · "+i.time:""),tag:pill(DOW[parse(i.date).getDay()],"info")})).join(""):'<div class="empty">No inspections scheduled.</div>')+'</div></div>'+
+   '</div>'+
+   '<div class="section"><h2>Happening this week</h2><div class="list">'+(weekActs.length?weekActs.map(a=>li({col:"activities",r:a,when:a.start,txt:a.name+(a.trade?" · "+a.trade:"")+" ("+md(a.start)+"–"+md(a.finish)+")",tag:pill(a.status,ACT_CLS[a.status]||"new")})).join(""):'<div class="empty">No activities scheduled this week. Open a job and add them to its lookahead.</div>')+'</div></div>';
+}
+
+const TABS=[["lookahead","3-Week Lookahead","activities"],["logs","Daily Log","logs"],["inspections","Inspections","inspections"],["items","RFIs / COs","items"],["contacts","Contacts","contacts"],["info","Job Info",null]];
+function renderJob(j){
+  const tabs=TABS.map(([k,l,col])=>'<button class="tab" role="tab" aria-selected="'+(view.tab===k)+'" data-tab="'+k+'">'+l+(col?'<span class="n">'+byJob(col,j.id).length+'</span>':'')+'</button>').join("");
+  let body="";
+  if(view.tab==="lookahead")body=renderLookahead(j);
+  else if(view.tab==="logs")body=renderLogs(j);
+  else if(view.tab==="inspections")body=renderInsp(j);
+  else if(view.tab==="items")body=renderItems(j);
+  else if(view.tab==="contacts")body=renderContacts(j);
+  else body=renderInfo(j);
+  return '<div class="jobhead"><h1>'+esc(j.name)+'</h1>'+pill(j.status||"Active",JOB_CLS[j.status]||"ok")+'<span class="muted small">'+esc([j.address,j.city].filter(Boolean).join(", "))+'</span></div>'+
+    '<div class="tabs" role="tablist">'+tabs+'</div>'+body;
+}
+
+function renderLookahead(j){
+  const days=workdays(view.week,15);const t=todayIso();
+  const first=days[0],last=days[14];
+  const acts=byJob("activities",j.id).filter(a=>a.start<=last&&a.finish>=first).sort((a,b)=>a.start<b.start?-1:a.start>b.start?1:String(a.name).localeCompare(b.name));
+  const outside=byJob("activities",j.id).length-acts.length;
+  const insp=byJob("inspections",j.id);
+  let head1='<tr><th class="act" rowspan="2">Activity</th>';
+  for(let w=0;w<3;w++)head1+='<th class="wk" colspan="5">Week '+(w+1)+' · '+md(days[w*5])+'</th>';
+  head1+='</tr>';
+  let head2='<tr>'+days.map((d,i)=>'<th class="day'+(i%5===0?" wstart":"")+(d===t?" today":"")+'">'+DOW[parse(d).getDay()].slice(0,2)+'<br>'+md(d)+'</th>').join("")+'</tr>';
+  let inspRow='<tr class="insp"><td class="act small muted">Inspections</td>'+days.map((d,i)=>{const hits=insp.filter(x=>x.date===d);if(!hits.length)return '<td class="day'+(i%5===0?" wstart":"")+'"></td>';const r=hits[0].result;const c=r==="Passed"?"pass":r==="Failed"?"fail":"";return '<td class="day'+(i%5===0?" wstart":"")+'" title="'+esc(hits.map(h=>h.type+" ("+h.result+")").join(", "))+'"><span class="dot '+c+'"></span></td>';}).join("")+'</tr>';
+  const rows=acts.map(a=>{
+    const st="st-"+(ACT_CLS[a.status]||"new");
+    const cells=days.map((d,i)=>{const on=a.start<=d&&a.finish>=d;let c="day"+(i%5===0?" wstart":"");if(on){c+=" on";if(d===a.start||i===0)c+=" first";if(d===a.finish||i===14)c+=" last";}return '<td class="'+c+'"></td>';}).join("");
+    return '<tr class="'+st+'" data-edit="activities" data-id="'+esc(a.id)+'"><td class="act"><span class="aname">'+esc(a.name)+'</span><span class="atr">'+esc([a.trade,a.status,a.crew?a.crew+" crew":""].filter(Boolean).join(" · "))+(overdueAct(a)?' · <b style="color:var(--bad)">past finish</b>':'')+'</span></td>'+cells+'</tr>';
+  }).join("");
+  const cons=acts.filter(a=>a.constraint&&a.status!=="Done");
+  let listHtml="";
+  for(let w=0;w<3;w++){
+    const ws=days[w*5],we=days[w*5+4];
+    const wa=acts.filter(a=>a.start<=we&&a.finish>=ws);
+    const wi=insp.filter(x=>x.date>=ws&&x.date<=we);
+    listHtml+='<div class="wkhead">Week '+(w+1)+' · '+md(ws)+'–'+md(we)+'</div>';
+    listHtml+=wa.map(a=>'<div class="li click" data-edit="activities" data-id="'+esc(a.id)+'"><div class="when">'+md(a.start)+'–'+md(a.finish)+'</div><div class="what"><b>'+esc(a.name)+'</b>'+((a.trade||a.crew)?'<div class="small muted">'+esc([a.trade,a.crew?a.crew+" crew":""].filter(Boolean).join(" · "))+'</div>':'')+(overdueAct(a)?'<div class="small" style="color:var(--bad);font-weight:600">Past finish date</div>':'')+(a.constraint&&a.status!=="Done"?'<div class="small" style="color:var(--warn)">Needs: '+esc(a.constraint)+'</div>':'')+'</div>'+pill(a.status||"Not Started",ACT_CLS[a.status]||"new")+'</div>').join("");
+    listHtml+=wi.map(x=>'<div class="li click" data-edit="inspections" data-id="'+esc(x.id)+'"><div class="when">'+DOW[parse(x.date).getDay()]+' '+md(x.date)+'</div><div class="what"><b>'+esc(x.type)+' inspection</b>'+(x.time?'<div class="small muted">'+esc(x.time)+'</div>':'')+'</div>'+pill(x.result||"Scheduled",INSP_CLS[x.result]||"info")+'</div>').join("");
+    if(!wa.length&&!wi.length)listHtml+='<div class="empty">Nothing scheduled.</div>';
+  }
+  const isList=view.laMode==="list";
+  return '<div class="section">'+
+    '<div class="row" style="justify-content:space-between"><h2>'+mdy(first)+' – '+mdy(last)+'</h2>'+
+      '<div class="row"><button class="btn sm" data-week="-1" aria-label="Previous week">‹ Prev</button><button class="btn sm" data-week="0">This week</button><button class="btn sm" data-week="1" aria-label="Next week">Next ›</button>'+
+      '<button class="btn sm" data-copy="'+esc(j.id)+'">Copy for subs</button><button class="btn primary sm" data-act="new" data-col="activities">+ Activity</button></div></div>'+
+    '<div class="row"><div class="seg" role="group" aria-label="Lookahead view"><button data-lamode="list" aria-pressed="'+isList+'">List</button><button data-lamode="chart" aria-pressed="'+(!isList)+'">Chart</button></div></div>'+
+    (isList?'<div class="list">'+listHtml+'</div>':'<div class="gwrap"><table class="la"><thead>'+head1+head2+'</thead><tbody>'+inspRow+(rows||'<tr><td class="act muted" colspan="16" style="position:static">No activities in these 3 weeks. Tap “+ Activity” to add one.</td></tr>')+'</tbody></table></div>'+
+    '<div class="legend"><span><i style="background:var(--accent-soft);border:1px dashed var(--bar)"></i>Not started</span><span><i style="background:var(--bar)"></i>On track</span><span><i style="background:var(--warn)"></i>At risk</span><span><i style="background:var(--bad)"></i>Late</span><span><i style="background:var(--done)"></i>Done</span><span><span class="dot" style="width:8px;height:8px"></span> Inspection</span>'+(outside?'<span>'+outside+' more outside this window</span>':'')+'</div>')+
+  '</div>'+
+  '<div class="section"><h2>Constraints to clear</h2><div class="list">'+(cons.length?cons.map(a=>'<div class="li click" data-edit="activities" data-id="'+esc(a.id)+'"><div class="when">'+md(a.start)+'</div><div class="what"><b>'+esc(a.name)+'</b><div class="small muted" style="white-space:pre-wrap">'+esc(a.constraint)+'</div></div>'+pill(a.status,ACT_CLS[a.status]||"new")+'</div>').join(""):'<div class="empty">No open constraints in this window.</div>')+'</div></div>';
+}
+
+function renderLogs(j){
+  const logs=byJob("logs",j.id).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  const items=logs.map(l=>'<div class="log" data-edit="logs" data-id="'+esc(l.id)+'"><div><div class="d">'+(parse(l.date)?DOW[parse(l.date).getDay()]+" "+mdy(l.date):"")+'</div><div class="small muted">'+esc([l.weather,l.crew?l.crew+" workers":"",l.hours?l.hours+" hrs":""].filter(Boolean).join(" · "))+'</div></div><div>'+
+    '<p>'+esc(l.work)+'</p>'+(l.subs?'<p class="small"><b>Subs:</b> '+esc(l.subs)+'</p>':'')+(l.deliveries?'<p class="small"><b>Deliveries:</b> '+esc(l.deliveries)+'</p>':'')+(l.visitors?'<p class="small"><b>Visitors:</b> '+esc(l.visitors)+'</p>':'')+(l.issues?'<p class="small" style="color:var(--bad)"><b>Issues:</b> '+esc(l.issues)+'</p>':'')+'</div></div>').join("");
+  return '<div class="section"><div class="row" style="justify-content:space-between"><h2>Daily log</h2><button class="btn primary sm" data-act="new" data-col="logs">+ Today\'s log</button></div><div class="list">'+(items||'<div class="empty">No daily logs yet. Add one at the end of each day: work done, crew, weather, issues.</div>')+'</div></div>';
+}
+function table(cols,rows,col){
+  return '<div class="twrap"><table class="t"><thead><tr>'+cols.map(c=>'<th>'+c[0]+'</th>').join("")+'</tr></thead><tbody>'+rows.map(r=>'<tr data-edit="'+col+'" data-id="'+esc(r.id)+'">'+cols.map(c=>'<td data-label="'+c[0]+'"'+(c[2]?' class="num"':'')+'>'+c[1](r)+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>';
+}
+function renderInsp(j){
+  const rows=byJob("inspections",j.id).sort((a,b)=>a.date<b.date?1:-1);
+  return '<div class="section"><div class="row" style="justify-content:space-between"><h2>Inspections</h2><button class="btn primary sm" data-act="new" data-col="inspections">+ Inspection</button></div>'+
+   (rows.length?table([["Date",r=>mdy(r.date),1],["Inspection",r=>'<b>'+esc(r.type)+'</b>'+(r.notes?'<div class="small muted">'+esc(r.notes)+'</div>':'')],["Time",r=>esc(r.time)],["Inspector",r=>esc(r.inspector)],["Result",r=>pill(r.result||"Scheduled",INSP_CLS[r.result]||"info")]],rows,"inspections"):'<div class="empty">No inspections yet.</div>')+'</div>';
+}
+function renderItems(j){
+  const t=todayIso();
+  const rows=byJob("items",j.id).sort((a,b)=>(a.status==="Open"?0:1)-(b.status==="Open"?0:1)||(String(a.number).localeCompare(String(b.number),undefined,{numeric:true})));
+  const coTotal=rows.filter(r=>r.kind==="Change Order"&&r.status==="Approved").reduce((s,r)=>s+(+r.amount||0),0);
+  const coDays=rows.filter(r=>r.kind==="Change Order"&&r.status==="Approved").reduce((s,r)=>s+(+r.days||0),0);
+  return '<div class="section"><div class="row" style="justify-content:space-between"><h2>RFIs, change orders & submittals</h2><button class="btn primary sm" data-act="new" data-col="items">+ Item</button></div>'+
+   '<div class="small muted">Approved change orders: <b style="color:var(--ink)">'+(money(coTotal)||"$0")+'</b> · '+coDays+' days added</div>'+
+   (rows.length?table([["No.",r=>esc(r.number),1],["Type",r=>esc(r.kind)],["Subject",r=>'<b>'+esc(r.title)+'</b>'+(r.to?'<div class="small muted">To '+esc(r.to)+'</div>':'')],["Sent",r=>mdy(r.sent),1],["Due",r=>(r.status==="Open"&&r.due&&r.due<t?'<b style="color:var(--bad)">'+mdy(r.due)+'</b>':mdy(r.due)),1],["Amount",r=>money(r.amount),1],["Status",r=>pill(r.status||"Open",ITEM_CLS[r.status]||"warn")]],rows,"items"):'<div class="empty">No RFIs, change orders or submittals yet.</div>')+'</div>';
+}
+function renderContacts(j){
+  const rows=byJob("contacts",j.id).sort((a,b)=>String(a.name).localeCompare(b.name));
+  return '<div class="section"><div class="row" style="justify-content:space-between"><h2>Contacts</h2><button class="btn primary sm" data-act="new" data-col="contacts">+ Contact</button></div>'+
+   (rows.length?table([["Name",r=>'<b>'+esc(r.name)+'</b>'+(r.notes?'<div class="small muted">'+esc(r.notes)+'</div>':'')],["Company",r=>esc(r.company)],["Role",r=>esc(r.role)],["Phone",r=>r.phone?'<a href="tel:'+esc(String(r.phone).replace(/[^\d+]/g,""))+'" data-stop="1">'+esc(r.phone)+'</a>':"",1],["Email",r=>r.email?'<a href="mailto:'+esc(r.email)+'" data-stop="1">'+esc(r.email)+'</a>':""]],rows,"contacts"):'<div class="empty">No contacts yet. Add the owner, inspector, engineer and each sub.</div>')+'</div>';
+}
+function renderInfo(j){
+  const f=SCHEMAS.jobs.fields;
+  return '<div class="section"><div class="row" style="justify-content:space-between"><h2>Job info</h2><button class="btn sm" data-edit="jobs" data-id="'+esc(j.id)+'">Edit job</button></div><dl class="kv">'+
+   f.map(x=>{let v=j[x.k];if(x.t==="date")v=mdy(v);return '<dt>'+esc(x.l)+'</dt><dd>'+(v?esc(v):'<span class="muted">–</span>')+'</dd>';}).join("")+'</dl></div>';
+}
+
+// ---------- dialog form ----------
+const dlg=$("#dlg");
+let pendingDelete=false;
+function openForm(col,rec){
+  const sc=SCHEMAS[col];const isNew=!rec;pendingDelete=false;
+  const r=rec||{};
+  const fields=sc.fields.map(f=>{
+    let v=r[f.k];if(v==null){v=typeof f.def==="function"?f.def():(f.def||"");}
+    if(isNew&&col==="activities"&&(f.k==="start"||f.k==="finish")&&!v){v=iso(view.week)<todayIso()?todayIso():iso(view.week);}
+    if(isNew&&col==="inspections"&&f.k==="date"&&!v)v=todayIso();
+    const id="f_"+f.k;let input;
+    if(f.t==="select")input='<select id="'+id+'" name="'+f.k+'">'+f.o.map(o=>'<option'+(o===v?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
+    else if(f.t==="textarea")input='<textarea id="'+id+'" name="'+f.k+'" placeholder="'+esc(f.ph||"")+'">'+esc(v)+'</textarea>';
+    else input='<input id="'+id+'" name="'+f.k+'" type="'+(f.t||"text")+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||"")+'"'+(f.t==="number"?' inputmode="decimal" step="any"':'')+'>';
+    return '<div class="f'+(f.w||f.t==="textarea"?" wide":"")+'"><label for="'+id+'">'+esc(f.l)+(f.req?" *":"")+'</label>'+input+'</div>';
+  }).join("");
+  dlg.innerHTML='<form class="dlg" id="frm" novalidate><header><h2>'+(isNew?"New ":"Edit ")+esc(sc.title.toLowerCase()==="rfi / co / submittal"?sc.title:sc.title.toLowerCase())+'</h2>'+(col!=="jobs"&&(r.jobId||view.job)?'<div class="small muted">'+esc(jobName(r.jobId||view.job))+'</div>':'')+'</header>'+
+   '<div class="body">'+fields+'<div class="err" id="ferr"></div></div>'+
+   '<footer><button type="submit" class="btn primary">'+(isNew?"Add":"Save")+'</button><button type="button" class="btn" data-close="1">Cancel</button><span class="spacer"></span>'+
+   (!isNew?'<button type="button" class="btn danger" id="delBtn">Delete</button>':'')+'</footer></form>';
+  dlg.showModal();
+  const frm=$("#frm");
+  frm.addEventListener("submit",async ev=>{
+    ev.preventDefault();
+    const data={};sc.fields.forEach(f=>{let v=frm.elements[f.k].value.trim();if(f.t==="number"&&v!=="")v=+v;data[f.k]=v;});
+    const miss=sc.fields.filter(f=>f.req&&(data[f.k]===""||data[f.k]==null)).map(f=>f.l);
+    if(miss.length){$("#ferr").textContent="Fill in: "+miss.join(", ");return;}
+    if(data.start&&data.finish&&data.finish<data.start){$("#ferr").textContent="Finish date is before the start date.";return;}
+    const id=isNew?genId():rec.id;
+    if(col!=="jobs")data.jobId=isNew?view.job:rec.jobId;
+    if(!isNew&&rec.createdAt)data.createdAt=rec.createdAt;else data.createdAt=new Date().toISOString();
+    const btn=frm.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent="Saving…";
+    try{await save(col,id,data);dlg.close();toast(isNew?sc.title+" added":"Saved");if(isNew&&col==="jobs")location.hash="job-"+id;}
+    catch(e){btn.disabled=false;btn.textContent=isNew?"Add":"Save";}
+  });
+  const del=$("#delBtn");
+  if(del)del.addEventListener("click",async()=>{
+    if(!pendingDelete){pendingDelete=true;del.textContent=col==="jobs"?"Tap again to delete job":"Tap again to delete";return;}
+    del.disabled=true;
+    try{
+      if(col==="jobs"){for(const c of COLS.filter(c=>c!=="jobs")){for(const r of byJob(c,rec.id)){await remove(c,r.id);}}}
+      await remove(col,rec.id);dlg.close();toast("Deleted");if(col==="jobs")location.hash="dashboard";
+    }catch(e){del.disabled=false;}
+  });
+}
+dlg.addEventListener("click",e=>{if(e.target.closest("[data-close]"))dlg.close();if(e.target===dlg)dlg.close();});
+
+function copyText(j){
+  const days=workdays(view.week,15);const first=days[0],last=days[14];
+  const acts=byJob("activities",j.id).filter(a=>a.start<=last&&a.finish>=first&&a.status!=="Done").sort((a,b)=>a.start<b.start?-1:1);
+  let out=j.name+" – 3-week lookahead "+md(first)+"–"+md(last)+"\n";
+  for(let w=0;w<3;w++){
+    const ws=days[w*5],we=days[w*5+4];
+    const list=acts.filter(a=>a.start<=we&&a.finish>=ws);
+    out+="\nWeek "+(w+1)+" ("+md(ws)+"–"+md(we)+")\n";
+    out+=list.length?list.map(a=>"• "+a.name+(a.trade?" – "+a.trade:"")+" ("+md(a.start)+"–"+md(a.finish)+")").join("\n"):"• (nothing scheduled)";
+    out+="\n";
+  }
+  const insp=byJob("inspections",j.id).filter(i=>i.date>=first&&i.date<=last&&i.result==="Scheduled");
+  if(insp.length)out+="\nInspections\n"+insp.map(i=>"• "+md(i.date)+" "+i.type+(i.time?" ("+i.time+")":"")).join("\n")+"\n";
+  return out;
+}
+
+// ---------- events ----------
+document.addEventListener("click",e=>{
+  if(e.target.closest("[data-stop]"))return;
+  if(e.target.closest("[data-signout]")){sb.auth.signOut();return;}
+  const go=e.target.closest("[data-go]");if(go){location.hash="job-"+go.dataset.go;return;}
+  const lm=e.target.closest("[data-lamode]");if(lm){view.laMode=lm.dataset.lamode;render();return;}
+  const tab=e.target.closest("[data-tab]");if(tab){view.tab=tab.dataset.tab;render();return;}
+  const wk=e.target.closest("[data-week]");if(wk){const n=+wk.dataset.week;view.week=n===0?monday(new Date()):addDays(view.week,7*n);render();return;}
+  const nw=e.target.closest("[data-act='new']");if(nw){openForm(nw.dataset.col,null);return;}
+  const ed=e.target.closest("[data-edit]");if(ed&&!e.target.closest("dialog")){const col=ed.dataset.edit;const r=S[col].find(x=>x.id===ed.dataset.id);if(r){if(col!=="jobs"&&view.page==="dashboard"){/* edit from dashboard keeps job context */}openForm(col,r);}return;}
+  const cp=e.target.closest("[data-copy]");if(cp){const j=S.jobs.find(x=>x.id===cp.dataset.copy);const txt=copyText(j);
+    const fallback=()=>{dlg.innerHTML='<div class="dlg"><header><h2>Copy this lookahead</h2></header><div class="body" style="display:block"><textarea class="copybox" readonly>'+esc(txt)+'</textarea><p class="small muted">Select all and copy, then paste into a text or email.</p></div><footer><button class="btn" data-close="1">Close</button></footer></div>';dlg.showModal();const ta=dlg.querySelector("textarea");ta.focus();ta.select();};
+    try{navigator.clipboard.writeText(txt).then(()=>toast("Lookahead copied. Paste it into a text or email."),fallback);}catch(err){fallback();}
+    return;}
+});
+
+readHash();
+start();
+})();
+</script>
+</body>
+</html>
